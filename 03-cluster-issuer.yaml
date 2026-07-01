@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# 26a) cert-manager ClusterIssuer for Let's Encrypt
+# Replace you@example.com with your real email (Let's Encrypt sends
+# expiry/renewal notices there).
+# ---------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@thechamp.app
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
