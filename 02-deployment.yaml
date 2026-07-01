@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      containers:
+        - name: myapp
+          image: ahmedwsiim/myapp:1.0
+          ports:
+            - containerPort: 5000
+          volumeMounts:
+            - mountPath: "/app/data"
+              name: myapp-storage
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+      volumes:
+        - name: myapp-storage
+          persistentVolumeClaim:
+            claimName: myapp-pvc

@@ -1,11 +1,3 @@
-# ---------------------------------------------------------------------------
-# 24) Dockerized Python app + PVC + Service
-# ---------------------------------------------------------------------------
-# Before applying:
-#   1. Build & push the image (see build_and_push.sh)
-#   2. Replace YOUR_DOCKERHUB_USERNAME below with your actual Docker Hub user
-# ---------------------------------------------------------------------------
-
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
