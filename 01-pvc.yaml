@@ -1,11 +1,22 @@
+# The API version of the Kubernetes resource we are creating
 apiVersion: v1
+
+# The type of resource. A PersistentVolumeClaim requests physical storage from AWS.
 kind: PersistentVolumeClaim
+
 metadata:
+  # The unique name of this storage claim that other resources will use to attach to it
   name: myapp-pvc
+
 spec:
   accessModes:
+    # This means the volume can be mounted as read-write by a single Kubernetes node at a time
     - ReadWriteOnce
+  
+  # The storage class to use. 'ebs-auto' tells EKS Auto Mode to dynamically create an AWS EBS volume
   storageClassName: ebs-auto
+  
   resources:
     requests:
+      # We are requesting exactly 2 Gigabytes of permanent storage space
       storage: 2Gi

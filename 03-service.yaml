@@ -1,11 +1,22 @@
+# The API version for Services
 apiVersion: v1
+
+# A Service provides a stable, permanent internal IP address to route traffic to our moving pods
 kind: Service
+
 metadata:
+  # The name of the service
   name: myapp-svc
+
 spec:
   selector:
+    # This tells the service to automatically route traffic to any pod with the label 'app: myapp'
     app: myapp
+    
   ports:
+    # We are using the standard TCP protocol for web traffic
     - protocol: TCP
+      # The port the service will listen on internally
       port: 80
+      # The port on the container to send the traffic to (our Flask app is running on 5000)
       targetPort: 5000

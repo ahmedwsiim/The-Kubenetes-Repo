@@ -1,14 +1,27 @@
+# The custom API version provided by Cert-Manager
 apiVersion: cert-manager.io/v1
+
+# A ClusterIssuer is a global resource that automatically requests SSL certificates for any namespace
 kind: ClusterIssuer
+
 metadata:
+  # The name we will reference when we want an SSL certificate in our Ingress file
   name: letsencrypt-prod
+
 spec:
   acme:
+    # The official Let's Encrypt production API endpoint for issuing real, valid SSL certs
     server: https://acme-v02.api.letsencrypt.org/directory
+    # The email address Let's Encrypt will contact if the certificate is about to expire
     email: admin@thechamp.app
+    
     privateKeySecretRef:
+      # Where Kubernetes will secretly store the generated private key for the SSL certificate
       name: letsencrypt-prod
+      
     solvers:
+      # We use HTTP-01 challenge to prove to Let's Encrypt that we own the domain
       - http01:
           ingress:
+            # We tell Cert-Manager to use our NGINX Ingress Controller to solve the challenge
             ingressClassName: nginx
