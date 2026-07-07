@@ -1,68 +1,63 @@
-# High-Performance Production Kubernetes Architecture
+# High-Performance Kubernetes Architecture: ALB + Traefik Two-Tier Ingress
 
-This repository contains the infrastructure and deployment configurations for our production-grade Kubernetes cluster on AWS EKS. We have recently upgraded from raw manifests to a highly scalable, zero-downtime, and maintainable setup using **Helm** and the **AWS Application Load Balancer (ALB)**.
+This repository contains the deployment configurations for our production-grade Kubernetes cluster on AWS EKS. We have implemented a highly scalable, zero-downtime **Two-Tier Ingress Architecture** using the **AWS Application Load Balancer (ALB)** and **Traefik**.
 
 ## 🏗️ Architecture Overview
 
-Our cluster handles multiple microservices, unified behind a highly-available AWS ALB.
+Our cluster handles multiple microservices, beautifully unified behind a two-tier routing system:
 
-- **Ingress Controller**: AWS Load Balancer Controller
-- **Universal Helm Chart**: `microservice-chart/` manages deployments, services, ingress rules, HPA, and PVCs dynamically.
-- **Routing**: ALB rules dynamically route traffic to specific services based on hostnames and paths.
-- **Current Live Services**:
-  - `flask-app`: The main Python application with persistent PVC storage.
-  - `dummy-app`: A lightweight microservice.
-  - `nginx-app`: A static HTML landing page application.
+1. **Tier 1: AWS Application Load Balancer (ALB)** 
+   - Acts as the public-facing entry point to the internet.
+   - Handles **native SSL/TLS termination** via AWS Certificate Manager (ACM).
+   - Secures our traffic and routes all requests for `thechamp.app` into the cluster.
+2. **Tier 2: Traefik (Internal API Gateway)**
+   - Runs as an internal `ClusterIP` service.
+   - Receives all decrypted traffic from the ALB.
+   - Uses powerful `IngressRoute` CRDs and `Middleware` to dynamically route requests based on URL paths, strip prefixes, and distribute traffic to our microservices.
 
-## 🚀 Key Improvements & Zero-Downtime
-
-1. **Universal Helm Chart (`microservice-chart`)**: Replaced manual `yaml` files with a single customizable chart. This enforces consistency, drastically reduces boilerplate, and allows us to spin up new microservices in seconds.
-2. **AWS Application Load Balancer (ALB)**: Replaced the default Traefik setup with a native AWS ALB. This provides native WAF integration, better metrics, automatic SSL/TLS termination, and highly robust cloud routing.
-3. **Zero-Downtime Migration**: The transition from Traefik to ALB was executed transparently using a blue-green approach. Traefik was left intact while the ALB was provisioned, tested, and validated. DNS was then shifted seamlessly to the ALB, ensuring **zero dropped requests** and **no downtime** for live users.
+### 🚀 Current Live Services
+- `myapp`: Our original core deployment.
+- `nginx-deployment`: Served at `thechamp.app/nginx`.
+- `dummy-deployment`: Served at `thechamp.app/dummy`.
+- `billing-deployment`: A dedicated billing microservice.
 
 ## 📁 Repository Structure
 
 ```text
-├── microservice-chart/        # The Universal Helm Chart for all our apps
-│   ├── Chart.yaml
-│   ├── values.yaml            # Default values (overridden per release)
-│   └── templates/             # Universal templates (deployment, service, ingress, etc.)
-├── 07-nginx-app.yaml          # Helm Values override for the NGINX App
-├── 08-dummy-app.yaml          # Helm Values override for the Dummy App
-├── app.py / Dockerfile        # Source code for the main Flask App
+├── 05-ingress.yaml            # ALB Ingress rules (routes Internet -> Traefik)
+├── 07-nginx-app.yaml          # Nginx Deployment + Service + Traefik IngressRoute
+├── 08-dummy-app.yaml          # Dummy Deployment + Service + Traefik IngressRoute
+├── patch-traefik.yaml         # Patch to convert Traefik to ClusterIP
 ├── alb-sa.yaml                # ALB Controller ServiceAccount & IAM mappings
-├── 05-ingress.yaml            # ALB Ingress routing rules
-└── index.html                 # Source code for the NGINX Landing Page
+└── Dockerfile / app.py        # Source code for the core apps
 ```
 
-## 🛠️ How to Deploy a Microservice
+## 🛠️ How It Works (The Traffic Flow)
 
-We use Helm to deploy and manage all services.
+When a user visits `https://thechamp.app/nginx`:
+1. **ALB** receives the HTTPS request, decrypts it using the ACM certificate (`f79bdd39-c116-43ec-b754-d94acc8a3ea6`), and forwards it to the `traefik` service on port 80.
+2. **Traefik** sees the request for `/nginx`. It looks at the `IngressRoute` in `07-nginx-app.yaml`.
+3. Traefik triggers the `strip-nginx-prefix` Middleware to remove `/nginx` from the URL, so the Nginx pod just sees a request for `/`.
+4. The traffic is handed to the `nginx-svc`, which sends it to the running `nginx-deployment` pod.
 
-### 1. Deploying the Main Flask App
+## 🔄 Zero-Downtime Migration Log
+
+We achieved this setup without dropping a single request! 
+1. Traefik was originally a public `LoadBalancer`.
+2. We deployed the native AWS ALB (`05-ingress.yaml`) and configured it to point to Traefik.
+3. We updated our DNS for `thechamp.app` to point to the new ALB.
+4. Once traffic smoothly transitioned to the ALB, we ran a zero-downtime `helm upgrade` and `kubectl patch` to downgrade the old Traefik load balancer to a purely internal `ClusterIP` (`patch-traefik.yaml`). 
+
+## 📝 Deploying a New Microservice
+
+To add a new microservice (like `dummy-app`), you simply need to create a single YAML file containing:
+1. Your `Deployment` (the pods)
+2. Your `Service` (internal port mapping)
+3. Your Traefik `Middleware` (if you need to strip the URL prefix)
+4. Your Traefik `IngressRoute` (routing a specific path to your service)
+
+Apply it via:
 ```bash
-helm upgrade --install flask-app ./microservice-chart \
-  --set image.repository=yourdockerhubuser/myapp \
-  --set image.tag=1.0 \
-  --set service.port=80
+kubectl apply -f your-new-app.yaml
 ```
-
-### 2. Deploying the Dummy App
-Using a custom `values.yaml` file:
-```bash
-helm upgrade --install dummy-app ./microservice-chart -f 08-dummy-app.yaml
-```
-
-### 3. Deploying the Nginx App
-```bash
-helm upgrade --install nginx-app ./microservice-chart -f 07-nginx-app.yaml
-```
-
-## 🌐 Routing & Ingress
-
-Traffic coming to `ahmeddev.tech` and `www.ahmeddev.tech` hits the AWS Application Load Balancer. The ALB reads the rules from `05-ingress.yaml` and routes traffic to the target NodePort services, which are dynamically managed by the AWS Load Balancer Controller.
-
-To view the live ingress routes:
-```bash
-kubectl get ingress
-```
+Traffic will instantly be routed by Traefik with full SSL protection automatically provided by the ALB upstream!
