@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: aws-load-balancer-controller
+  
+  # The name of the ServiceAccount the Controller uses
+  name: aws-load-balancer-controller
+  
+  # It must live in the same namespace as the Controller (the property managers)
+  namespace: kube-system
+  
+  annotations:
+    # The magical link: This connects the Kubernetes account to the AWS IAM Role!
+    eks.amazonaws.com/role-arn: arn:aws:iam::990151164914:role/AmazonEKSLoadBalancerControllerRole

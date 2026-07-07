@@ -5,44 +5,39 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 
 metadata:
-  # The name of our routing rules
-  name: myapp-ingress
+  # The name of our ALB routing rules
+  name: alb-ingress
+  # The ALB must be in the same namespace as the Traefik service
+  namespace: traefik
   annotations:
-    # This tells Cert-Manager to automatically generate an SSL cert using our ClusterIssuer
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Tell Kubernetes to use the AWS ALB Controller we are going to install
+    kubernetes.io/ingress.class: alb
+    # We want this load balancer to be accessible from the public internet
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    # IP mode routes directly to the Traefik Pod IPs for maximum performance
+    alb.ingress.kubernetes.io/target-type: ip
+    # Tell the ALB that a 404 from Traefik is actually healthy (since Traefik returns 404 for unknown health-check hosts)
+    alb.ingress.kubernetes.io/success-codes: '200,404'
     
-    # Allows unlimited file upload sizes through the NGINX proxy (prevents 413 Payload Too Large)
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    # Wait up to 600 seconds for the Python app to respond before throwing a 504 Gateway Timeout
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    # Wait up to 600 seconds when sending data to the Python app before timing out
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # Listen on both HTTP and HTTPS
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    # Force automatically redirect HTTP to HTTPS
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # TODO: We will paste your AWS Certificate Manager (ACM) SSL Certificate ARN here!
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:eu-north-1:990151164914:certificate/f79bdd39-c116-43ec-b754-d94acc8a3ea6"
 
 spec:
-  # This tells Kubernetes to specifically use the NGINX controller to process these rules
-  ingressClassName: nginx
-  
-  tls:
-    # This entire section enables HTTPS/SSL
-    - hosts:
-        # The domain name we are securing
-        - thechamp.app
-      # The Kubernetes secret where the automatically generated SSL certificate will be saved
-      secretName: thechamp-tls
-      
   rules:
-    # We only want to apply these rules to traffic hitting exactly 'thechamp.app'
     - host: thechamp.app
       http:
         paths:
           # Match all traffic hitting the root path (/)
           - path: /
-            # Prefix means it matches / and anything after it like /users or /login
             pathType: Prefix
             backend:
               service:
-                # Route the matched traffic to our internal 'myapp-svc' service
-                name: myapp-svc
+                # Route the matched traffic to Traefik!
+                name: traefik
                 port:
-                  # Route it to port 80 of the service
                   number: 80

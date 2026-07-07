@@ -13,8 +13,8 @@ spec:
     # This means the volume can be mounted as read-write by a single Kubernetes node at a time
     - ReadWriteOnce
   
-  # The storage class to use. 'ebs-auto' tells EKS Auto Mode to dynamically create an AWS EBS volume
-  storageClassName: ebs-auto
+  # The storage class to use. 'gp2' is the standard AWS EBS storage class for standard clusters
+  storageClassName: gp2
   
   resources:
     requests:
