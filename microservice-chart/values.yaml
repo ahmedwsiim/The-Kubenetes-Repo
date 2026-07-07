@@ -1,0 +1,7 @@
+app:
+  name: "dummy"
+  image: "traefik/whoami:latest"
+  port: 80
+routing:
+  host: "thechamp.app"
+  path: "/dummy"

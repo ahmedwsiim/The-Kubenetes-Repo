@@ -1,0 +1,27 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-{{ .Values.app.name }}-prefix
+  namespace: default
+spec:
+  stripPrefix:
+    prefixes:
+      - {{ .Values.routing.path }}
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ .Values.app.name }}-route
+  namespace: default
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`{{ .Values.routing.host }}`) && PathPrefix(`{{ .Values.routing.path }}`)
+      kind: Rule
+      middlewares:
+        - name: strip-{{ .Values.app.name }}-prefix
+      services:
+        - name: {{ .Values.app.name }}-svc
+          port: {{ .Values.app.port }}
