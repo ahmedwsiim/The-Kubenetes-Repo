@@ -1,3 +1,19 @@
+# ── Binaries & Archives ──
 *.exe
 *.zip
-helm_extracted/
+
+# ── Terraform ──
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+
+# ── Python ──
+app/__pycache__/
+app/*.pyc
+
+# ── OS / IDE ──
+.DS_Store
+.vscode/
+*.swp
