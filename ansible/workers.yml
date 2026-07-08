@@ -1,0 +1,7 @@
+### e:/K8s/ansible/workers.yml
+---
+- name: Play 3 - Worker Join
+  hosts: workers
+  become: true
+  roles:
+    - worker

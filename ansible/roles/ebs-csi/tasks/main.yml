@@ -1,0 +1,88 @@
+### e:/K8s/ansible/roles/ebs-csi/tasks/main.yml
+---
+# Check if Helm is installed
+- name: Check if Helm is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/helm
+  register: helm_installed
+
+# Download the Helm installation script
+- name: Download Helm install script
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get-helm-3.sh
+    mode: '0700'
+  when: not helm_installed.stat.exists
+
+# Execute the Helm installation script
+- name: Run Helm install script
+  ansible.builtin.command: /tmp/get-helm-3.sh
+  when: not helm_installed.stat.exists
+  become: true
+
+# Add the AWS EBS CSI Driver Helm repository
+- name: Add AWS EBS CSI Driver Helm repo
+  ansible.builtin.command: helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  ignore_errors: true
+
+# Update Helm repositories
+- name: Update Helm repos
+  ansible.builtin.command: helm repo update
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Check if the AWS EBS CSI Driver is already installed
+- name: Check if EBS CSI Driver is already installed
+  ansible.builtin.command: helm status aws-ebs-csi-driver -n kube-system
+  register: ebs_csi_installed
+  ignore_errors: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Install the AWS EBS CSI Driver via Helm
+- name: Install AWS EBS CSI Driver via Helm
+  ansible.builtin.command: >
+    helm install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver
+    --namespace kube-system
+    --version {{ ebs_csi_driver_chart_version }}
+    --set controller.region={{ aws_region }}
+    --set node.tolerateAllTaints=true
+  when: ebs_csi_installed.rc != 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Wait for the EBS CSI controller pods to be in Ready state
+- name: Wait for EBS CSI controller pods to be Ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=aws-ebs-csi-driver -n kube-system --timeout=120s
+  retries: 6
+  delay: 20
+  register: ebs_ready
+  until: ebs_ready.rc == 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Apply the StorageClass manifest inline
+- name: Apply StorageClass manifest inline
+  ansible.builtin.command: kubectl apply -f -
+  args:
+    stdin: |
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: {{ storage_class_name }}
+      provisioner: ebs.csi.aws.com
+      volumeBindingMode: WaitForFirstConsumer
+      reclaimPolicy: Retain
+      parameters:
+        type: gp3
+        encrypted: "true"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Verify that the StorageClass was successfully created
+- name: Verify StorageClass was created
+  ansible.builtin.command: kubectl get storageclass {{ storage_class_name }}
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"

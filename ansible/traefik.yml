@@ -1,0 +1,7 @@
+### e:/K8s/ansible/traefik.yml
+---
+- name: Play 5 - Traefik Ingress Controller
+  hosts: control_plane
+  become: false
+  roles:
+    - traefik

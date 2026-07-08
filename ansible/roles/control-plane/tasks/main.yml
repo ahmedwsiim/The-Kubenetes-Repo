@@ -1,0 +1,111 @@
+### e:/K8s/ansible/roles/control-plane/tasks/main.yml
+---
+# Check if the cluster is already initialised by looking for admin.conf
+- name: Check if cluster is already initialised
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_init_done
+
+# Initialise the cluster using kubeadm
+- name: Run kubeadm init
+  ansible.builtin.command: >
+    kubeadm init
+    --control-plane-endpoint "{{ control_plane_ip }}:6443"
+    --pod-network-cidr "{{ pod_network_cidr }}"
+    --cri-socket "unix:///var/run/containerd/containerd.sock"
+    --kubernetes-version "{{ kubernetes_version_full }}"
+    --upload-certs
+  when: not kubeadm_init_done.stat.exists
+  register: kubeadm_init_output
+  become: true
+
+# Create the .kube directory for the ubuntu user
+- name: Create .kube directory for ubuntu user
+  ansible.builtin.file:
+    path: /home/ubuntu/.kube
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+# Copy the admin config to the ubuntu user's kubeconfig
+- name: Copy admin.conf to ubuntu user kubeconfig
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ubuntu/.kube/config
+    remote_src: true
+    owner: ubuntu
+    group: ubuntu
+    mode: '0600'
+  become: true
+
+# Install the Calico tigera-operator manifest
+- name: Install Calico tigera-operator
+  ansible.builtin.command: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/tigera-operator.yaml
+  register: calico_operator_result
+  ignore_errors: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Install the Calico custom-resources manifest
+- name: Install Calico custom-resources
+  ansible.builtin.command: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/custom-resources.yaml
+  ignore_errors: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Wait until the calico-system namespace is created
+- name: Wait for calico-system namespace to exist
+  ansible.builtin.command: kubectl get namespace calico-system
+  register: calico_ns
+  retries: 12
+  delay: 10
+  until: calico_ns.rc == 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Wait for all pods in the calico-system namespace to be Ready
+- name: Wait for all Calico pods to be Running
+  ansible.builtin.command: kubectl wait --for=condition=Ready pods --all -n calico-system --timeout=120s
+  retries: 6
+  delay: 20
+  register: calico_ready
+  until: calico_ready.rc == 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Wait for the control plane node to become Ready
+- name: Wait for control plane node to be Ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready node --all --timeout=120s
+  retries: 6
+  delay: 20
+  register: node_ready
+  until: node_ready.rc == 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Generate a new kubeadm join command
+- name: Generate kubeadm join command
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: join_command_raw
+  become: true
+
+# Save the generated join command to a variable
+- name: Set join_command fact
+  ansible.builtin.set_fact:
+    join_command: "{{ join_command_raw.stdout }}"
+
+# Save the join command to a temporary file on the bastion host
+- name: Save join command to file on bastion
+  ansible.builtin.copy:
+    content: "{{ join_command }}"
+    dest: /tmp/kubeadm_join_command.sh
+    mode: '0700'
+  delegate_to: localhost
+
+# Fetch the kubeconfig from the control plane to the bastion host
+- name: Fetch kubeconfig to bastion for local kubectl use
+  ansible.builtin.fetch:
+    src: /home/ubuntu/.kube/config
+    dest: /home/ubuntu/.kube/config
+    flat: true

@@ -1,0 +1,11 @@
+### e:/K8s/ansible/prep.yml
+---
+- name: Play 1 - Node Preparation
+  hosts: k8s_cluster
+  become: true
+  pre_tasks:
+    - name: Print start message
+      ansible.builtin.debug:
+        msg: "Starting node preparation on {{ inventory_hostname }}"
+  roles:
+    - node-prep

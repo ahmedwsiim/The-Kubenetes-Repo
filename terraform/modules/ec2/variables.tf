@@ -1,39 +1,44 @@
 # ──────────────────────────────────────────────────────────────────────
-# ALB Module — Input Variables
+# EC2 Module — Input Variables
 # ──────────────────────────────────────────────────────────────────────
 
-variable "vpc_id" {
-  description = "VPC ID for the target groups"
+variable "private_subnet_1_id" {
+  description = "Private subnet ID in AZ-a (control plane + worker 1)"
+  type        = string
+}
+
+variable "private_subnet_2_id" {
+  description = "Private subnet ID in AZ-b (worker 2)"
   type        = string
 }
 
 variable "public_subnet_1_id" {
-  description = "Public subnet 1 ID for the ALB"
+  description = "Public subnet ID in AZ-a (bastion host)"
   type        = string
 }
 
-variable "public_subnet_2_id" {
-  description = "Public subnet 2 ID for the ALB"
+variable "control_plane_sg_id" {
+  description = "Security group ID for the control plane node"
   type        = string
 }
 
-variable "alb_sg_id" {
-  description = "Security group ID for the ALB"
+variable "worker_sg_id" {
+  description = "Security group ID for worker nodes"
   type        = string
 }
 
-variable "worker_1_instance_id" {
-  description = "EC2 instance ID of worker node 1"
+variable "bastion_sg_id" {
+  description = "Security group ID for the bastion host"
   type        = string
 }
 
-variable "worker_2_instance_id" {
-  description = "EC2 instance ID of worker node 2"
+variable "instance_profile_name" {
+  description = "IAM instance profile name for EBS CSI driver permissions"
   type        = string
 }
 
-variable "acm_certificate_arn" {
-  description = "ARN of the ACM certificate for HTTPS listener"
+variable "key_pair_name" {
+  description = "Name of the EC2 key pair for SSH access"
   type        = string
 }
 

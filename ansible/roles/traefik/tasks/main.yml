@@ -1,0 +1,82 @@
+### e:/K8s/ansible/roles/traefik/tasks/main.yml
+---
+# Create the namespace for Traefik
+- name: Create traefik namespace
+  ansible.builtin.command: kubectl create namespace {{ traefik_namespace }}
+  ignore_errors: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Add the Traefik Helm repository
+- name: Add Traefik Helm repo
+  ansible.builtin.command: helm repo add traefik https://traefik.github.io/charts
+  ignore_errors: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Update Helm repositories
+- name: Update Helm repos
+  ansible.builtin.command: helm repo update
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Check if Traefik is already installed
+- name: Check if Traefik is already installed
+  ansible.builtin.command: helm status traefik -n {{ traefik_namespace }}
+  register: traefik_installed
+  ignore_errors: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Install Traefik via Helm as a DaemonSet with hostPort binding
+- name: Install Traefik via Helm as DaemonSet with hostPort
+  ansible.builtin.command: >
+    helm install traefik traefik/traefik
+    --namespace {{ traefik_namespace }}
+    --version {{ traefik_chart_version }}
+    --set deployment.kind=DaemonSet
+    --set image.tag={{ traefik_image_tag }}
+    --set service.enabled=true
+    --set service.type=ClusterIP
+    --set ports.web.hostPort=80
+    --set ports.websecure.hostPort=443
+    --set ports.traefik.expose.default=true
+    --set ports.traefik.port=9000
+    --set ports.traefik.hostPort=9000
+    --set providers.kubernetesIngress.enabled=true
+    --set providers.kubernetesCRD.enabled=false
+    --set ingressClass.enabled=true
+    --set ingressClass.isDefaultClass=true
+    --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key=node-role.kubernetes.io/control-plane
+    --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=DoesNotExist
+    --set resources.requests.cpu=100m
+    --set resources.requests.memory=64Mi
+    --set resources.limits.cpu=300m
+    --set resources.limits.memory=128Mi
+    --set logs.general.level=INFO
+    --set accessLogs.enabled=true
+  when: traefik_installed.rc != 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Wait for Traefik DaemonSet pods to be Ready
+- name: Wait for Traefik DaemonSet pods to be Ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=traefik -n {{ traefik_namespace }} --timeout=120s
+  retries: 6
+  delay: 20
+  register: traefik_ready
+  until: traefik_ready.rc == 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+# Verify Traefik DaemonSet status
+- name: Verify Traefik DaemonSet is running on all worker nodes
+  ansible.builtin.command: kubectl get daemonset traefik -n {{ traefik_namespace }}
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: traefik_ds
+
+# Print the Traefik DaemonSet status
+- name: Print Traefik DaemonSet status
+  ansible.builtin.debug:
+    msg: "{{ traefik_ds.stdout }}"

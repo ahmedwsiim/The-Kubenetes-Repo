@@ -1,28 +1,21 @@
 # ──────────────────────────────────────────────────────────────────────
-# Root Input Variables — user MUST provide all three, no defaults
+# Root Input Variables — user MUST supply all three
 # ──────────────────────────────────────────────────────────────────────
 
+# Name of an existing AWS EC2 key pair for SSH access
 variable "key_pair_name" {
-  description = "Name of an existing AWS EC2 key pair for SSH access to all instances"
+  description = "Name of existing AWS key pair for SSH access"
   type        = string
 }
 
+# Workstation public IP in CIDR notation for bastion SSH access
 variable "my_ip" {
-  description = "Your workstation public IP in CIDR notation, e.g. 1.2.3.4/32"
+  description = "Your workstation public IP in CIDR notation e.g. 1.2.3.4/32"
   type        = string
-
-  validation {
-    condition     = can(cidrhost(var.my_ip, 0))
-    error_message = "my_ip must be a valid CIDR block, e.g. 1.2.3.4/32"
-  }
 }
 
+# ACM certificate ARN for the ALB HTTPS listener
 variable "acm_certificate_arn" {
-  description = "ARN of an AWS ACM certificate in eu-north-1 for the ALB HTTPS listener"
+  description = "ARN of ACM certificate for HTTPS listener on ALB"
   type        = string
-
-  validation {
-    condition     = startswith(var.acm_certificate_arn, "arn:aws:acm:")
-    error_message = "acm_certificate_arn must be a valid ACM ARN starting with arn:aws:acm:"
-  }
 }

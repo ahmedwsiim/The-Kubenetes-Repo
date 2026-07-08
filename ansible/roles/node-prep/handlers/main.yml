@@ -1,0 +1,6 @@
+### e:/K8s/ansible/roles/node-prep/handlers/main.yml
+---
+- name: restart containerd
+  ansible.builtin.systemd:
+    name: containerd
+    state: restarted

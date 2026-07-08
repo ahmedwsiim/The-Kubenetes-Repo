@@ -1,50 +1,89 @@
 # ──────────────────────────────────────────────────────────────────────
-# VPC Module — VPC, Subnets, IGW, NAT GW, Route Tables
+# VPC Module — VPC, Subnets, Internet GW, NAT GW, Route Tables
 # ──────────────────────────────────────────────────────────────────────
 
 # Main VPC for the Kubernetes cluster
-resource "aws_vpc" "this" {
-  cidr_block           = var.vpc_cidr
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "${var.project_name}-vpc" }
+  tags = {
+    Name        = "${var.project_name}-vpc"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ── Public Subnets ──────────────────────────────────────────────────
 
-# Public subnets for ALB and bastion (one per AZ)
-resource "aws_subnet" "public" {
-  count = length(var.public_subnet_cidrs)
-
-  vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = var.availability_zones[count.index]
+# Public subnet in AZ eu-north-1a (ALB + bastion)
+resource "aws_subnet" "public_1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "eu-north-1a"
   map_public_ip_on_launch = true
 
-  tags = { Name = "${var.project_name}-public-${var.availability_zones[count.index]}" }
+  tags = {
+    Name        = "${var.project_name}-public-1a"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+# Public subnet in AZ eu-north-1b (ALB)
+resource "aws_subnet" "public_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "eu-north-1b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name        = "${var.project_name}-public-1b"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ── Private Subnets ─────────────────────────────────────────────────
 
-# Private subnets for all K8s nodes (one per AZ)
-resource "aws_subnet" "private" {
-  count = length(var.private_subnet_cidrs)
+# Private subnet in AZ eu-north-1a (control plane + worker 1)
+resource "aws_subnet" "private_1" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.10.0/24"
+  availability_zone = "eu-north-1a"
 
-  vpc_id            = aws_vpc.this.id
-  cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = var.availability_zones[count.index]
+  tags = {
+    Name        = "${var.project_name}-private-1a"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
 
-  tags = { Name = "${var.project_name}-private-${var.availability_zones[count.index]}" }
+# Private subnet in AZ eu-north-1b (worker 2)
+resource "aws_subnet" "private_2" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.20.0/24"
+  availability_zone = "eu-north-1b"
+
+  tags = {
+    Name        = "${var.project_name}-private-1b"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ── Internet Gateway ────────────────────────────────────────────────
 
 # Internet Gateway for public subnet internet access
-resource "aws_internet_gateway" "this" {
-  vpc_id = aws_vpc.this.id
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
 
-  tags = { Name = "${var.project_name}-igw" }
+  tags = {
+    Name        = "${var.project_name}-igw"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ── NAT Gateway ─────────────────────────────────────────────────────
@@ -53,63 +92,83 @@ resource "aws_internet_gateway" "this" {
 resource "aws_eip" "nat" {
   domain = "vpc"
 
-  tags = { Name = "${var.project_name}-nat-eip" }
+  tags = {
+    Name        = "${var.project_name}-nat-eip"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # NAT Gateway in the first public subnet for private node internet access
-resource "aws_nat_gateway" "this" {
+resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
+  subnet_id     = aws_subnet.public_1.id
 
-  depends_on = [aws_internet_gateway.this]
+  depends_on = [aws_internet_gateway.main]
 
-  tags = { Name = "${var.project_name}-nat-gw" }
+  tags = {
+    Name        = "${var.project_name}-nat-gw"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ── Route Tables ────────────────────────────────────────────────────
 
-# Public route table — sends internet traffic through the IGW
+# Public route table — routes internet traffic through the IGW
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
+  vpc_id = aws_vpc.main.id
 
-  tags = { Name = "${var.project_name}-public-rt" }
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name        = "${var.project_name}-public-rt"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
-# Default route for public subnets to the Internet Gateway
-resource "aws_route" "public_internet" {
-  route_table_id         = aws_route_table.public.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.this.id
-}
-
-# Private route table — sends internet traffic through the NAT Gateway
+# Private route table — routes internet traffic through the NAT Gateway
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.this.id
+  vpc_id = aws_vpc.main.id
 
-  tags = { Name = "${var.project_name}-private-rt" }
-}
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
 
-# Default route for private subnets through the NAT Gateway
-resource "aws_route" "private_nat" {
-  route_table_id         = aws_route_table.private.id
-  destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.this.id
+  tags = {
+    Name        = "${var.project_name}-private-rt"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ── Route Table Associations ────────────────────────────────────────
 
-# Associate each public subnet with the public route table
-resource "aws_route_table_association" "public" {
-  count = length(var.public_subnet_cidrs)
-
-  subnet_id      = aws_subnet.public[count.index].id
+# Associate public subnet 1 with the public route table
+resource "aws_route_table_association" "public_1" {
+  subnet_id      = aws_subnet.public_1.id
   route_table_id = aws_route_table.public.id
 }
 
-# Associate each private subnet with the private route table
-resource "aws_route_table_association" "private" {
-  count = length(var.private_subnet_cidrs)
+# Associate public subnet 2 with the public route table
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public.id
+}
 
-  subnet_id      = aws_subnet.private[count.index].id
+# Associate private subnet 1 with the private route table
+resource "aws_route_table_association" "private_1" {
+  subnet_id      = aws_subnet.private_1.id
+  route_table_id = aws_route_table.private.id
+}
+
+# Associate private subnet 2 with the private route table
+resource "aws_route_table_association" "private_2" {
+  subnet_id      = aws_subnet.private_2.id
   route_table_id = aws_route_table.private.id
 }

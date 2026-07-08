@@ -1,0 +1,35 @@
+### e:/K8s/ansible/site.yml
+---
+- name: Play 1 - Node Preparation
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - node-prep
+
+- name: Play 2 - Control Plane Bootstrap
+  hosts: control_plane
+  become: false
+  vars_prompt:
+    - name: control_plane_ip
+      prompt: "Enter the control plane private IP (from Terraform output)"
+      private: false
+  roles:
+    - control-plane
+
+- name: Play 3 - Worker Join
+  hosts: workers
+  become: true
+  roles:
+    - worker
+
+- name: Play 4 - EBS CSI Driver
+  hosts: control_plane
+  become: false
+  roles:
+    - ebs-csi
+
+- name: Play 5 - Traefik Ingress Controller
+  hosts: control_plane
+  become: false
+  roles:
+    - traefik

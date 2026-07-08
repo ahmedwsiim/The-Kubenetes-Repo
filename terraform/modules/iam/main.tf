@@ -2,7 +2,7 @@
 # IAM Module — EBS CSI Driver policy, role, and instance profile
 # ──────────────────────────────────────────────────────────────────────
 
-# IAM policy granting EBS volume management permissions
+# IAM policy granting EBS volume management permissions for the CSI driver
 resource "aws_iam_policy" "ebs_csi" {
   name        = "${var.project_name}-EbsCsiDriverPolicy"
   description = "Allows EC2 instances to manage EBS volumes for the K8s EBS CSI Driver"
@@ -35,11 +35,15 @@ resource "aws_iam_policy" "ebs_csi" {
     ]
   })
 
-  tags = { Name = "${var.project_name}-EbsCsiDriverPolicy" }
+  tags = {
+    Name        = "${var.project_name}-EbsCsiDriverPolicy"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # IAM role that EC2 instances assume for EBS operations
-resource "aws_iam_role" "ec2_ebs" {
+resource "aws_iam_role" "ec2_ebs_role" {
   name        = "${var.project_name}-ec2-ebs-role"
   description = "IAM role for EC2 nodes to manage EBS volumes"
 
@@ -55,19 +59,27 @@ resource "aws_iam_role" "ec2_ebs" {
     ]
   })
 
-  tags = { Name = "${var.project_name}-ec2-ebs-role" }
+  tags = {
+    Name        = "${var.project_name}-ec2-ebs-role"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Attach the EBS CSI policy to the role
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
-  role       = aws_iam_role.ec2_ebs.name
+  role       = aws_iam_role.ec2_ebs_role.name
   policy_arn = aws_iam_policy.ebs_csi.arn
 }
 
 # Instance profile linking the role to EC2 instances
-resource "aws_iam_instance_profile" "ec2_ebs" {
+resource "aws_iam_instance_profile" "ec2_ebs_profile" {
   name = "${var.project_name}-ec2-ebs-profile"
-  role = aws_iam_role.ec2_ebs.name
+  role = aws_iam_role.ec2_ebs_role.name
 
-  tags = { Name = "${var.project_name}-ec2-ebs-profile" }
+  tags = {
+    Name        = "${var.project_name}-ec2-ebs-profile"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }

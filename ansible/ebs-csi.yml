@@ -1,0 +1,7 @@
+### e:/K8s/ansible/ebs-csi.yml
+---
+- name: Play 4 - EBS CSI Driver
+  hosts: control_plane
+  become: false
+  roles:
+    - ebs-csi

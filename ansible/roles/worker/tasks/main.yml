@@ -1,0 +1,39 @@
+### e:/K8s/ansible/roles/worker/tasks/main.yml
+---
+# Check if the node has already joined the cluster
+- name: Check if node is already joined
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: node_joined
+
+# Read the join command from the bastion host
+- name: Read join command from file saved by control-plane role
+  ansible.builtin.slurp:
+    src: /tmp/kubeadm_join_command.sh
+  register: join_command_b64
+  delegate_to: localhost
+  when: not node_joined.stat.exists
+
+# Decode the base64 encoded join command
+- name: Decode join command
+  ansible.builtin.set_fact:
+    join_command: "{{ join_command_b64.content | b64decode | trim }}"
+  when: not node_joined.stat.exists
+
+# Execute the join command on the worker node
+- name: Execute kubeadm join
+  ansible.builtin.command: "{{ join_command }}"
+  become: true
+  when: not node_joined.stat.exists
+  register: join_result
+
+# Wait until this worker node shows as Ready from the control plane's perspective
+- name: Wait for this node to be Ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=120s
+  delegate_to: "{{ groups['control_plane'][0] }}"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  retries: 6
+  delay: 20
+  register: worker_ready
+  until: worker_ready.rc == 0

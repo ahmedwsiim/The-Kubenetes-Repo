@@ -2,17 +2,14 @@
 # ALB Module — Outputs
 # ──────────────────────────────────────────────────────────────────────
 
+# DNS name of the ALB — point your domain CNAME here
 output "alb_dns_name" {
-  description = "DNS name of the ALB — point your domain CNAME here"
-  value       = aws_lb.this.dns_name
+  description = "DNS name of the internet-facing ALB"
+  value       = aws_lb.main.dns_name
 }
 
+# ARN of the ALB
 output "alb_arn" {
   description = "ARN of the ALB"
-  value       = aws_lb.this.arn
-}
-
-output "alb_zone_id" {
-  description = "Route53 hosted zone ID of the ALB (for alias records)"
-  value       = aws_lb.this.zone_id
+  value       = aws_lb.main.arn
 }

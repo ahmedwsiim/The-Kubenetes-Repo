@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────────────
-# Security Groups Module — all 4 SGs with separate rule resources
+# Security Groups Module — 4 SGs with all rules as separate resources
 # ──────────────────────────────────────────────────────────────────────
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -12,10 +12,14 @@ resource "aws_security_group" "bastion" {
   description = "Bastion SSH jump host"
   vpc_id      = var.vpc_id
 
-  tags = { Name = "${var.project_name}-bastion-sg" }
+  tags = {
+    Name        = "${var.project_name}-bastion-sg"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
-# Allow SSH inbound from your workstation IP only
+# Allow SSH inbound from workstation IP only
 resource "aws_vpc_security_group_ingress_rule" "bastion_ssh_in" {
   security_group_id = aws_security_group.bastion.id
   description       = "SSH from workstation"
@@ -24,17 +28,41 @@ resource "aws_vpc_security_group_ingress_rule" "bastion_ssh_in" {
   to_port           = 22
   cidr_ipv4         = var.my_ip
 
-  tags = { Name = "${var.project_name}-bastion-ssh-in" }
+  tags = {
+    Name        = "${var.project_name}-bastion-ssh-in"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
-# Allow all outbound traffic from bastion
+# Allow SSH outbound to all private nodes in the VPC
+resource "aws_vpc_security_group_egress_rule" "bastion_ssh_to_vpc" {
+  security_group_id = aws_security_group.bastion.id
+  description       = "SSH to VPC private nodes"
+  ip_protocol       = "tcp"
+  from_port         = 22
+  to_port           = 22
+  cidr_ipv4         = "10.0.0.0/16"
+
+  tags = {
+    Name        = "${var.project_name}-bastion-ssh-vpc"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+# Allow all outbound traffic from bastion (apt updates, NAT, etc)
 resource "aws_vpc_security_group_egress_rule" "bastion_all_out" {
   security_group_id = aws_security_group.bastion.id
-  description       = "All outbound"
+  description       = "All outbound traffic"
   ip_protocol       = "-1"
   cidr_ipv4         = "0.0.0.0/0"
 
-  tags = { Name = "${var.project_name}-bastion-all-out" }
+  tags = {
+    Name        = "${var.project_name}-bastion-all-out"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -47,7 +75,11 @@ resource "aws_security_group" "control_plane" {
   description = "Kubernetes control plane node"
   vpc_id      = var.vpc_id
 
-  tags = { Name = "${var.project_name}-control-plane-sg" }
+  tags = {
+    Name        = "${var.project_name}-control-plane-sg"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow SSH from bastion
@@ -59,7 +91,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_ssh_from_bastion" {
   to_port                      = 22
   referenced_security_group_id = aws_security_group.bastion.id
 
-  tags = { Name = "${var.project_name}-cp-ssh-bastion" }
+  tags = {
+    Name        = "${var.project_name}-cp-ssh-bastion"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow K8s API server from workers
@@ -71,7 +107,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_api_from_workers" {
   to_port                      = 6443
   referenced_security_group_id = aws_security_group.worker.id
 
-  tags = { Name = "${var.project_name}-cp-api-workers" }
+  tags = {
+    Name        = "${var.project_name}-cp-api-workers"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow K8s API server from bastion (kubectl via SSH tunnel)
@@ -83,7 +123,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_api_from_bastion" {
   to_port                      = 6443
   referenced_security_group_id = aws_security_group.bastion.id
 
-  tags = { Name = "${var.project_name}-cp-api-bastion" }
+  tags = {
+    Name        = "${var.project_name}-cp-api-bastion"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow etcd client from control plane itself
@@ -95,7 +139,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_etcd_client_self" {
   to_port                      = 2379
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-cp-etcd-client" }
+  tags = {
+    Name        = "${var.project_name}-cp-etcd-client"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow etcd peer from control plane itself
@@ -107,7 +155,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_etcd_peer_self" {
   to_port                      = 2380
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-cp-etcd-peer" }
+  tags = {
+    Name        = "${var.project_name}-cp-etcd-peer"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow kubelet from workers
@@ -119,7 +171,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_kubelet_from_workers" {
   to_port                      = 10250
   referenced_security_group_id = aws_security_group.worker.id
 
-  tags = { Name = "${var.project_name}-cp-kubelet-workers" }
+  tags = {
+    Name        = "${var.project_name}-cp-kubelet-workers"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow kubelet from control plane itself
@@ -131,7 +187,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_kubelet_self" {
   to_port                      = 10250
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-cp-kubelet-self" }
+  tags = {
+    Name        = "${var.project_name}-cp-kubelet-self"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow kube-controller-manager from self
@@ -143,7 +203,11 @@ resource "aws_vpc_security_group_ingress_rule" "cp_controller_manager_self" {
   to_port                      = 10257
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-cp-ctrl-mgr-self" }
+  tags = {
+    Name        = "${var.project_name}-cp-ctrl-mgr"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow kube-scheduler from self
@@ -155,17 +219,25 @@ resource "aws_vpc_security_group_ingress_rule" "cp_scheduler_self" {
   to_port                      = 10259
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-cp-scheduler-self" }
+  tags = {
+    Name        = "${var.project_name}-cp-scheduler"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow all outbound from control plane
 resource "aws_vpc_security_group_egress_rule" "cp_all_out" {
   security_group_id = aws_security_group.control_plane.id
-  description       = "All outbound"
+  description       = "All outbound traffic"
   ip_protocol       = "-1"
   cidr_ipv4         = "0.0.0.0/0"
 
-  tags = { Name = "${var.project_name}-cp-all-out" }
+  tags = {
+    Name        = "${var.project_name}-cp-all-out"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -178,7 +250,11 @@ resource "aws_security_group" "worker" {
   description = "Kubernetes worker nodes"
   vpc_id      = var.vpc_id
 
-  tags = { Name = "${var.project_name}-worker-sg" }
+  tags = {
+    Name        = "${var.project_name}-worker-sg"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow SSH from bastion
@@ -190,7 +266,11 @@ resource "aws_vpc_security_group_ingress_rule" "worker_ssh_from_bastion" {
   to_port                      = 22
   referenced_security_group_id = aws_security_group.bastion.id
 
-  tags = { Name = "${var.project_name}-worker-ssh-bastion" }
+  tags = {
+    Name        = "${var.project_name}-worker-ssh-bastion"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow kubelet from control plane
@@ -202,7 +282,11 @@ resource "aws_vpc_security_group_ingress_rule" "worker_kubelet_from_cp" {
   to_port                      = 10250
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-worker-kubelet-cp" }
+  tags = {
+    Name        = "${var.project_name}-worker-kubelet-cp"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow HTTP from ALB (Traefik hostPort 80)
@@ -214,7 +298,11 @@ resource "aws_vpc_security_group_ingress_rule" "worker_http_from_alb" {
   to_port                      = 80
   referenced_security_group_id = aws_security_group.alb.id
 
-  tags = { Name = "${var.project_name}-worker-http-alb" }
+  tags = {
+    Name        = "${var.project_name}-worker-http-alb"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow HTTPS from ALB (Traefik hostPort 443)
@@ -226,7 +314,11 @@ resource "aws_vpc_security_group_ingress_rule" "worker_https_from_alb" {
   to_port                      = 443
   referenced_security_group_id = aws_security_group.alb.id
 
-  tags = { Name = "${var.project_name}-worker-https-alb" }
+  tags = {
+    Name        = "${var.project_name}-worker-https-alb"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow Traefik dashboard from bastion only (port 9000)
@@ -238,7 +330,11 @@ resource "aws_vpc_security_group_ingress_rule" "worker_dashboard_from_bastion" {
   to_port                      = 9000
   referenced_security_group_id = aws_security_group.bastion.id
 
-  tags = { Name = "${var.project_name}-worker-dash-bastion" }
+  tags = {
+    Name        = "${var.project_name}-worker-dash-bastion"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow NodePort range from control plane
@@ -250,7 +346,11 @@ resource "aws_vpc_security_group_ingress_rule" "worker_nodeport_from_cp" {
   to_port                      = 32767
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-worker-nodeport-cp" }
+  tags = {
+    Name        = "${var.project_name}-worker-nodeport-cp"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow all traffic from other workers (Calico pod-to-pod)
@@ -260,7 +360,11 @@ resource "aws_vpc_security_group_ingress_rule" "worker_all_from_workers" {
   ip_protocol                  = "-1"
   referenced_security_group_id = aws_security_group.worker.id
 
-  tags = { Name = "${var.project_name}-worker-all-workers" }
+  tags = {
+    Name        = "${var.project_name}-worker-all-workers"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow all traffic from control plane (cluster internal)
@@ -270,17 +374,25 @@ resource "aws_vpc_security_group_ingress_rule" "worker_all_from_cp" {
   ip_protocol                  = "-1"
   referenced_security_group_id = aws_security_group.control_plane.id
 
-  tags = { Name = "${var.project_name}-worker-all-cp" }
+  tags = {
+    Name        = "${var.project_name}-worker-all-cp"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow all outbound from workers
 resource "aws_vpc_security_group_egress_rule" "worker_all_out" {
   security_group_id = aws_security_group.worker.id
-  description       = "All outbound"
+  description       = "All outbound traffic"
   ip_protocol       = "-1"
   cidr_ipv4         = "0.0.0.0/0"
 
-  tags = { Name = "${var.project_name}-worker-all-out" }
+  tags = {
+    Name        = "${var.project_name}-worker-all-out"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -293,7 +405,11 @@ resource "aws_security_group" "alb" {
   description = "Internet-facing Application Load Balancer"
   vpc_id      = var.vpc_id
 
-  tags = { Name = "${var.project_name}-alb-sg" }
+  tags = {
+    Name        = "${var.project_name}-alb-sg"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow HTTP from the internet
@@ -305,7 +421,11 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http_in" {
   to_port           = 80
   cidr_ipv4         = "0.0.0.0/0"
 
-  tags = { Name = "${var.project_name}-alb-http-in" }
+  tags = {
+    Name        = "${var.project_name}-alb-http-in"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow HTTPS from the internet
@@ -317,7 +437,11 @@ resource "aws_vpc_security_group_ingress_rule" "alb_https_in" {
   to_port           = 443
   cidr_ipv4         = "0.0.0.0/0"
 
-  tags = { Name = "${var.project_name}-alb-https-in" }
+  tags = {
+    Name        = "${var.project_name}-alb-https-in"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow HTTP outbound to workers only
@@ -329,7 +453,11 @@ resource "aws_vpc_security_group_egress_rule" "alb_http_to_workers" {
   to_port                      = 80
   referenced_security_group_id = aws_security_group.worker.id
 
-  tags = { Name = "${var.project_name}-alb-http-workers" }
+  tags = {
+    Name        = "${var.project_name}-alb-http-workers"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
 
 # Allow HTTPS outbound to workers only
@@ -341,5 +469,9 @@ resource "aws_vpc_security_group_egress_rule" "alb_https_to_workers" {
   to_port                      = 443
   referenced_security_group_id = aws_security_group.worker.id
 
-  tags = { Name = "${var.project_name}-alb-https-workers" }
+  tags = {
+    Name        = "${var.project_name}-alb-https-workers"
+    Project     = var.project_name
+    Environment = var.environment
+  }
 }
