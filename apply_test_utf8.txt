@@ -1,0 +1,3 @@
+﻿deployment.apps/test-deployment created
+service/test-svc created
+ingressroute.traefik.io/test-route created

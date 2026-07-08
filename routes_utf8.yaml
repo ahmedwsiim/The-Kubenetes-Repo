@@ -1,0 +1,97 @@
+﻿apiVersion: v1
+items:
+- apiVersion: traefik.io/v1alpha1
+  kind: IngressRoute
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: billing-api
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-07-07T10:08:26Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+    name: billing-route
+    namespace: default
+    resourceVersion: "1503348"
+    uid: f429ee2c-3c25-4c4d-babf-3bfc15801c88
+  spec:
+    entryPoints:
+    - web
+    routes:
+    - kind: Rule
+      match: Host(`thechamp.app`) && PathPrefix(`/billing`)
+      middlewares:
+      - name: strip-billing-prefix
+      services:
+      - name: billing-svc
+        port: 80
+- apiVersion: traefik.io/v1alpha1
+  kind: IngressRoute
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"traefik.io/v1alpha1","kind":"IngressRoute","metadata":{"annotations":{},"name":"dummy-route","namespace":"default"},"spec":{"entryPoints":["web"],"routes":[{"kind":"Rule","match":"Host(`thechamp.app`) \u0026\u0026 PathPrefix(`/dummy`)","middlewares":[{"name":"strip-dummy-prefix"}],"services":[{"name":"dummy-svc","port":80}]}]}}
+    creationTimestamp: "2026-07-07T07:33:13Z"
+    generation: 1
+    name: dummy-route
+    namespace: default
+    resourceVersion: "1463804"
+    uid: e829f4cc-88a8-4348-87b8-e23c7a935ff3
+  spec:
+    entryPoints:
+    - web
+    routes:
+    - kind: Rule
+      match: Host(`thechamp.app`) && PathPrefix(`/dummy`)
+      middlewares:
+      - name: strip-dummy-prefix
+      services:
+      - name: dummy-svc
+        port: 80
+- apiVersion: traefik.io/v1alpha1
+  kind: IngressRoute
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"traefik.io/v1alpha1","kind":"IngressRoute","metadata":{"annotations":{},"name":"myapp-route","namespace":"default"},"spec":{"entryPoints":["web"],"routes":[{"kind":"Rule","match":"Host(`thechamp.app`)","services":[{"name":"myapp-svc","port":80}]}]}}
+    creationTimestamp: "2026-07-03T10:53:58Z"
+    generation: 1
+    name: myapp-route
+    namespace: default
+    resourceVersion: "49205"
+    uid: 6fc23bad-6a56-4f44-9f5f-f6302a89a187
+  spec:
+    entryPoints:
+    - web
+    routes:
+    - kind: Rule
+      match: Host(`thechamp.app`)
+      services:
+      - name: myapp-svc
+        port: 80
+- apiVersion: traefik.io/v1alpha1
+  kind: IngressRoute
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"traefik.io/v1alpha1","kind":"IngressRoute","metadata":{"annotations":{},"name":"nginx-route","namespace":"default"},"spec":{"entryPoints":["web"],"routes":[{"kind":"Rule","match":"Host(`thechamp.app`) \u0026\u0026 PathPrefix(`/nginx`)","middlewares":[{"name":"strip-nginx-prefix"}],"services":[{"name":"nginx-svc","port":80}]}]}}
+    creationTimestamp: "2026-07-07T07:29:54Z"
+    generation: 2
+    name: nginx-route
+    namespace: default
+    resourceVersion: "1463286"
+    uid: 205b87d8-6145-4c9e-b0fd-3eafa732fdef
+  spec:
+    entryPoints:
+    - web
+    routes:
+    - kind: Rule
+      match: Host(`thechamp.app`) && PathPrefix(`/nginx`)
+      middlewares:
+      - name: strip-nginx-prefix
+      services:
+      - name: nginx-svc
+        port: 80
+kind: List
+metadata:
+  resourceVersion: ""

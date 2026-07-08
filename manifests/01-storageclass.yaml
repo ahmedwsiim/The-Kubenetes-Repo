@@ -1,10 +1,10 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: ebs-auto
-# The CORRECT provisioner name for the AWS EBS CSI Driver
+  name: ebs-sc
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
 parameters:
   type: gp3
   encrypted: "true"
