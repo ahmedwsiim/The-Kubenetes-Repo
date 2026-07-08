@@ -1,39 +1,45 @@
 # ──────────────────────────────────────────────────────────────────────
-# Outputs — computed values for post-provisioning configuration
+# Root Outputs — computed values for post-provisioning use
 # ──────────────────────────────────────────────────────────────────────
 
-# Public IP of the bastion host for SSH access
 output "bastion_public_ip" {
-  description = "Public Elastic IP of the bastion host"
-  value       = aws_eip.bastion.public_ip
+  description = "Public Elastic IP of the bastion host — use this to SSH in"
+  value       = module.compute.bastion_public_ip
 }
 
-# Private IP of the control plane node for kubeadm init
 output "control_plane_private_ip" {
-  description = "Private IP of the Kubernetes control plane node"
-  value       = aws_instance.control_plane.private_ip
+  description = "Private IP of the control plane node — run kubeadm init here"
+  value       = module.compute.control_plane_private_ip
 }
 
-# Private IP of worker node 1 for kubeadm join
 output "worker_1_private_ip" {
-  description = "Private IP of Kubernetes worker node 1"
-  value       = aws_instance.worker_1.private_ip
+  description = "Private IP of worker node 1 — run kubeadm join here"
+  value       = module.compute.worker_1_private_ip
 }
 
-# Private IP of worker node 2 for kubeadm join
 output "worker_2_private_ip" {
-  description = "Private IP of Kubernetes worker node 2"
-  value       = aws_instance.worker_2.private_ip
+  description = "Private IP of worker node 2 — run kubeadm join here"
+  value       = module.compute.worker_2_private_ip
 }
 
-# DNS name of the ALB for CNAME or alias DNS records
 output "alb_dns_name" {
-  description = "DNS name of the internet-facing Application Load Balancer"
-  value       = aws_lb.main.dns_name
+  description = "DNS name of the ALB — point your domain CNAME here"
+  value       = module.alb.alb_dns_name
 }
 
-# VPC ID for reference in post-provisioning scripts
 output "vpc_id" {
-  description = "ID of the VPC containing the Kubernetes cluster"
-  value       = aws_vpc.main.id
+  description = "ID of the VPC containing the cluster"
+  value       = module.vpc.vpc_id
+}
+
+# ── Connection cheat-sheet printed after apply ──────────────────────
+
+output "ssh_commands" {
+  description = "Quick-start SSH commands"
+  value = {
+    bastion       = "ssh -i <key>.pem ubuntu@${module.compute.bastion_public_ip}"
+    control_plane = "ssh -J ubuntu@${module.compute.bastion_public_ip} ubuntu@${module.compute.control_plane_private_ip}"
+    worker_1      = "ssh -J ubuntu@${module.compute.bastion_public_ip} ubuntu@${module.compute.worker_1_private_ip}"
+    worker_2      = "ssh -J ubuntu@${module.compute.bastion_public_ip} ubuntu@${module.compute.worker_2_private_ip}"
+  }
 }

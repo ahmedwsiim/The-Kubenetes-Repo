@@ -1,11 +1,11 @@
 # ──────────────────────────────────────────────────────────────────────
-# IAM resources for the EBS CSI Driver (kubeadm — no IRSA available)
+# IAM Module — EBS CSI Driver policy, role, and instance profile
 # ──────────────────────────────────────────────────────────────────────
 
-# IAM policy granting EC2 EBS volume management permissions for the CSI driver
-resource "aws_iam_policy" "ebs_csi_driver" {
-  name        = "EbsCsiDriverPolicy"
-  description = "Allows EC2 instances to manage EBS volumes for the Kubernetes EBS CSI Driver"
+# IAM policy granting EBS volume management permissions
+resource "aws_iam_policy" "ebs_csi" {
+  name        = "${var.project_name}-EbsCsiDriverPolicy"
+  description = "Allows EC2 instances to manage EBS volumes for the K8s EBS CSI Driver"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -35,15 +35,13 @@ resource "aws_iam_policy" "ebs_csi_driver" {
     ]
   })
 
-  tags = {
-    Name = "EbsCsiDriverPolicy"
-  }
+  tags = { Name = "${var.project_name}-EbsCsiDriverPolicy" }
 }
 
-# IAM role that EC2 instances can assume for EBS operations
+# IAM role that EC2 instances assume for EBS operations
 resource "aws_iam_role" "ec2_ebs" {
-  name        = "ec2-ebs-role"
-  description = "IAM role for EC2 instances to manage EBS volumes via the CSI driver"
+  name        = "${var.project_name}-ec2-ebs-role"
+  description = "IAM role for EC2 nodes to manage EBS volumes"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -57,23 +55,19 @@ resource "aws_iam_role" "ec2_ebs" {
     ]
   })
 
-  tags = {
-    Name = "ec2-ebs-role"
-  }
+  tags = { Name = "${var.project_name}-ec2-ebs-role" }
 }
 
-# Attach the EBS CSI policy to the EC2 role
-resource "aws_iam_role_policy_attachment" "ebs_csi_attach" {
+# Attach the EBS CSI policy to the role
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
   role       = aws_iam_role.ec2_ebs.name
-  policy_arn = aws_iam_policy.ebs_csi_driver.arn
+  policy_arn = aws_iam_policy.ebs_csi.arn
 }
 
-# Instance profile that links the IAM role to EC2 instances
+# Instance profile linking the role to EC2 instances
 resource "aws_iam_instance_profile" "ec2_ebs" {
-  name = "ec2-ebs-profile"
+  name = "${var.project_name}-ec2-ebs-profile"
   role = aws_iam_role.ec2_ebs.name
 
-  tags = {
-    Name = "ec2-ebs-profile"
-  }
+  tags = { Name = "${var.project_name}-ec2-ebs-profile" }
 }

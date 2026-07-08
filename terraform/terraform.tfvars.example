@@ -1,0 +1,7 @@
+# ──────────────────────────────────────────────────────────────────────
+# Example tfvars — copy to terraform.tfvars and fill in your values
+# ──────────────────────────────────────────────────────────────────────
+
+key_pair_name       = "your-key-pair-name"
+my_ip               = "1.2.3.4/32"
+acm_certificate_arn = "arn:aws:acm:eu-north-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
