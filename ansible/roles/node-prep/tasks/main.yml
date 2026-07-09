@@ -100,17 +100,16 @@
 - name: Generate default containerd config
   ansible.builtin.command: containerd config default
   register: containerd_default_config
-  args:
-    creates: /etc/containerd/config.toml
   become: true
+  changed_when: false
 
 # Write the default containerd configuration to file
 - name: Write containerd config to /etc/containerd/config.toml
   ansible.builtin.copy:
     dest: /etc/containerd/config.toml
     content: "{{ containerd_default_config.stdout }}"
-  when: containerd_default_config.changed
   become: true
+  notify: restart containerd
 
 # Enable SystemdCgroup in containerd config for Kubernetes
 - name: Set SystemdCgroup = true in containerd config
@@ -126,7 +125,7 @@
   ansible.builtin.systemd:
     name: containerd
     enabled: true
-    state: started
+    state: restarted
   become: true
 
 # Download and add Kubernetes GPG key

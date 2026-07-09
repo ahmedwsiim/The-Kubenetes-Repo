@@ -3,9 +3,5 @@
 - name: Play 2 - Control Plane Bootstrap
   hosts: control_plane
   become: false
-  vars_prompt:
-    - name: control_plane_ip
-      prompt: "Enter the control plane private IP (from Terraform output)"
-      private: false
   roles:
     - control-plane

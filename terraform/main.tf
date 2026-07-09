@@ -10,12 +10,47 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
   }
 }
 
 # AWS provider targeting Stockholm region
 provider "aws" {
   region = "eu-north-1"
+}
+
+# ── Automatically Generate SSH Key Pair ────────────────────────────────
+
+# Generate a 4096-bit RSA private key
+resource "tls_private_key" "k8s" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# Register the public key as an AWS Key Pair
+resource "aws_key_pair" "k8s" {
+  key_name   = "k8s-kubeadm-key"
+  public_key = tls_private_key.k8s.public_key_openssh
+
+  tags = {
+    Name        = "k8s-kubeadm-key"
+    Project     = "k8s-kubeadm"
+    Environment = "learning"
+  }
+}
+
+# Save the private key to a local file for Ansible/SSH access
+resource "local_file" "k8s_private_key" {
+  content         = tls_private_key.k8s.private_key_pem
+  filename        = "${path.module}/k8s-kubeadm.pem"
+  file_permission = "0400"
 }
 
 # ── Module: VPC & Networking ─────────────────────────────────────────
@@ -55,7 +90,7 @@ module "ec2" {
   worker_sg_id          = module.security_groups.worker_sg_id
   bastion_sg_id         = module.security_groups.bastion_sg_id
   instance_profile_name = module.iam.instance_profile_name
-  key_pair_name         = var.key_pair_name
+  key_pair_name         = aws_key_pair.k8s.key_name
   project_name          = "k8s-kubeadm"
   environment           = "learning"
 }

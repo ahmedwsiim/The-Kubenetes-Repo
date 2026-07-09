@@ -23,7 +23,7 @@ data "aws_ami" "ubuntu" {
 # Kubernetes control plane node in private subnet 1a
 resource "aws_instance" "control_plane" {
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t3.medium"
+  instance_type          = "t3.micro"
   subnet_id              = var.private_subnet_1_id
   vpc_security_group_ids = [var.control_plane_sg_id]
   key_name               = var.key_pair_name
@@ -47,7 +47,7 @@ resource "aws_instance" "control_plane" {
 # First Kubernetes worker node in private subnet 1a
 resource "aws_instance" "worker_1" {
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t3.medium"
+  instance_type          = "t3.micro"
   subnet_id              = var.private_subnet_1_id
   vpc_security_group_ids = [var.worker_sg_id]
   key_name               = var.key_pair_name
@@ -71,7 +71,7 @@ resource "aws_instance" "worker_1" {
 # Second Kubernetes worker node in private subnet 1b (cross-AZ)
 resource "aws_instance" "worker_2" {
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t3.medium"
+  instance_type          = "t3.micro"
   subnet_id              = var.private_subnet_2_id
   vpc_security_group_ids = [var.worker_sg_id]
   key_name               = var.key_pair_name

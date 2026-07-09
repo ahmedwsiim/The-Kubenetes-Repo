@@ -15,6 +15,7 @@
     --cri-socket "unix:///var/run/containerd/containerd.sock"
     --kubernetes-version "{{ kubernetes_version_full }}"
     --upload-certs
+    --ignore-preflight-errors=Mem,NumCPU
   when: not kubeadm_init_done.stat.exists
   register: kubeadm_init_output
   become: true
@@ -109,3 +110,11 @@
     src: /home/ubuntu/.kube/config
     dest: /home/ubuntu/.kube/config
     flat: true
+
+# Persist KUBECONFIG in bastion .bashrc for all future sessions
+- name: Add KUBECONFIG export to bastion .bashrc
+  ansible.builtin.lineinfile:
+    path: /home/ubuntu/.bashrc
+    line: 'export KUBECONFIG=/home/ubuntu/.kube/config'
+    state: present
+  delegate_to: localhost

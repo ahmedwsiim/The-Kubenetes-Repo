@@ -28,33 +28,74 @@
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
 
-# Install Traefik via Helm as a DaemonSet with hostPort binding
-- name: Install Traefik via Helm as DaemonSet with hostPort
+# Write Traefik Helm values file to control plane
+- name: Write Traefik Helm values file
+  ansible.builtin.copy:
+    dest: /tmp/traefik-values.yaml
+    content: |
+      deployment:
+        kind: DaemonSet
+
+      image:
+        tag: "{{ traefik_image_tag }}"
+
+      service:
+        enabled: true
+        type: ClusterIP
+
+      ports:
+        web:
+          port: 80
+          hostPort: 80
+        websecure:
+          port: 443
+          hostPort: 443
+        traefik:
+          port: 9000
+          hostPort: 9000
+          expose:
+            default: true
+
+      providers:
+        kubernetesIngress:
+          enabled: true
+        kubernetesCRD:
+          enabled: false
+
+      ingressClass:
+        enabled: true
+        isDefaultClass: true
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
+
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "64Mi"
+        limits:
+          cpu: "300m"
+          memory: "128Mi"
+
+      logs:
+        general:
+          level: INFO
+
+      accessLogs:
+        enabled: true
+
+# Install Traefik via Helm using values file
+- name: Install Traefik via Helm as DaemonSet
   ansible.builtin.command: >
     helm install traefik traefik/traefik
     --namespace {{ traefik_namespace }}
     --version {{ traefik_chart_version }}
-    --set deployment.kind=DaemonSet
-    --set image.tag={{ traefik_image_tag }}
-    --set service.enabled=true
-    --set service.type=ClusterIP
-    --set ports.web.hostPort=80
-    --set ports.websecure.hostPort=443
-    --set ports.traefik.expose.default=true
-    --set ports.traefik.port=9000
-    --set ports.traefik.hostPort=9000
-    --set providers.kubernetesIngress.enabled=true
-    --set providers.kubernetesCRD.enabled=false
-    --set ingressClass.enabled=true
-    --set ingressClass.isDefaultClass=true
-    --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key=node-role.kubernetes.io/control-plane
-    --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=DoesNotExist
-    --set resources.requests.cpu=100m
-    --set resources.requests.memory=64Mi
-    --set resources.limits.cpu=300m
-    --set resources.limits.memory=128Mi
-    --set logs.general.level=INFO
-    --set accessLogs.enabled=true
+    --values /tmp/traefik-values.yaml
   when: traefik_installed.rc != 0
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"

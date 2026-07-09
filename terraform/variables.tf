@@ -1,12 +1,6 @@
 # ──────────────────────────────────────────────────────────────────────
-# Root Input Variables — user MUST supply all three
+# Root Input Variables — user MUST supply all
 # ──────────────────────────────────────────────────────────────────────
-
-# Name of an existing AWS EC2 key pair for SSH access
-variable "key_pair_name" {
-  description = "Name of existing AWS key pair for SSH access"
-  type        = string
-}
 
 # Workstation public IP in CIDR notation for bastion SSH access
 variable "my_ip" {
