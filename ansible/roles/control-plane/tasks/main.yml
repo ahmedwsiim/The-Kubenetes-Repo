@@ -6,16 +6,37 @@
     path: /etc/kubernetes/admin.conf
   register: kubeadm_init_done
 
-# Initialise the cluster using kubeadm
+- name: Create custom kubeadm config to bypass leader election on Free Tier
+  ansible.builtin.copy:
+    dest: /tmp/kubeadm-config.yaml
+    content: |
+      apiVersion: kubeadm.k8s.io/v1beta3
+      kind: InitConfiguration
+      nodeRegistration:
+        criSocket: "unix:///var/run/containerd/containerd.sock"
+      ---
+      apiVersion: kubeadm.k8s.io/v1beta3
+      kind: ClusterConfiguration
+      kubernetesVersion: "{{ kubernetes_version_full }}"
+      controlPlaneEndpoint: "{{ control_plane_ip }}:6443"
+      networking:
+        podSubnet: "{{ pod_network_cidr }}"
+      controllerManager:
+        extraArgs:
+          leader-elect: "false"
+      scheduler:
+        extraArgs:
+          leader-elect: "false"
+  when: not kubeadm_init_done.stat.exists
+  become: true
+
+# Initialise the cluster using kubeadm with the custom config
 - name: Run kubeadm init
   ansible.builtin.command: >
     kubeadm init
-    --control-plane-endpoint "{{ control_plane_ip }}:6443"
-    --pod-network-cidr "{{ pod_network_cidr }}"
-    --cri-socket "unix:///var/run/containerd/containerd.sock"
-    --kubernetes-version "{{ kubernetes_version_full }}"
+    --config /tmp/kubeadm-config.yaml
     --upload-certs
-    --ignore-preflight-errors=Mem,NumCPU
+    --ignore-preflight-errors=Swap,Mem,NumCPU
   when: not kubeadm_init_done.stat.exists
   register: kubeadm_init_output
   become: true
@@ -40,38 +61,19 @@
     mode: '0600'
   become: true
 
-# Install the Calico tigera-operator manifest
-- name: Install Calico tigera-operator
-  ansible.builtin.command: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/tigera-operator.yaml
-  register: calico_operator_result
-  ignore_errors: true
+# Install Flannel network plugin
+- name: Install Flannel network plugin
+  ansible.builtin.command: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
 
-# Install the Calico custom-resources manifest
-- name: Install Calico custom-resources
-  ansible.builtin.command: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/custom-resources.yaml
-  ignore_errors: true
-  environment:
-    KUBECONFIG: "{{ kubeconfig_path }}"
-
-# Wait until the calico-system namespace is created
-- name: Wait for calico-system namespace to exist
-  ansible.builtin.command: kubectl get namespace calico-system
-  register: calico_ns
-  retries: 12
-  delay: 10
-  until: calico_ns.rc == 0
-  environment:
-    KUBECONFIG: "{{ kubeconfig_path }}"
-
-# Wait for all pods in the calico-system namespace to be Ready
-- name: Wait for all Calico pods to be Running
-  ansible.builtin.command: kubectl wait --for=condition=Ready pods --all -n calico-system --timeout=120s
-  retries: 6
+# Wait for all pods in the kube-flannel namespace to be Ready
+- name: Wait for all Flannel pods to be Running
+  ansible.builtin.command: kubectl wait --for=condition=Ready pods --all -n kube-flannel --timeout=600s
+  retries: 3
   delay: 20
-  register: calico_ready
-  until: calico_ready.rc == 0
+  register: flannel_ready
+  until: flannel_ready.rc == 0
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
 

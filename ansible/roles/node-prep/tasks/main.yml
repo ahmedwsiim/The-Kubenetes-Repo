@@ -1,17 +1,32 @@
-### e:/K8s/ansible/roles/node-prep/tasks/main.yml
 ---
-# Disable swap immediately for Kubernetes
-- name: Disable swap immediately
-  ansible.builtin.command: swapoff -a
+# Create a 2GB swap file to prevent OOM on t3.micro instances
+- name: Create 4GB swap file
+  ansible.builtin.command: dd if=/dev/zero of=/swapfile bs=1M count=4096
   become: true
-  changed_when: false
+  args:
+    creates: /swapfile
 
-# Remove swap from fstab so it doesn't remount on reboot
-- name: Remove swap entry from /etc/fstab permanently
-  ansible.builtin.replace:
+- name: Set swap file permissions
+  ansible.builtin.file:
+    path: /swapfile
+    mode: '0600'
+  become: true
+
+- name: Make swap file
+  ansible.builtin.command: mkswap /swapfile
+  become: true
+  when: ansible_swaptotal_mb == 0
+
+- name: Enable swap
+  ansible.builtin.command: swapon /swapfile
+  become: true
+  when: ansible_swaptotal_mb == 0
+
+- name: Add swap to fstab
+  ansible.builtin.lineinfile:
     path: /etc/fstab
-    regexp: '^([^#].*\s+swap\s+.*)$'
-    replace: '#\1'
+    line: '/swapfile none swap sw 0 0'
+    state: present
   become: true
 
 # Configure required kernel modules for containerd
@@ -163,6 +178,14 @@
     - kubeadm
     - kubelet
     - kubectl
+  become: true
+
+# Configure kubelet to ignore swap
+- name: Configure kubelet to allow swap
+  ansible.builtin.copy:
+    dest: /etc/default/kubelet
+    content: |
+      KUBELET_EXTRA_ARGS="--fail-swap-on=false"
   become: true
 
 # Ensure kubelet service is enabled

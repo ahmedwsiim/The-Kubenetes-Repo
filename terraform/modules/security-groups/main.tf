@@ -289,33 +289,16 @@ resource "aws_vpc_security_group_ingress_rule" "worker_kubelet_from_cp" {
   }
 }
 
-# Allow HTTP from ALB (Traefik hostPort 80)
-resource "aws_vpc_security_group_ingress_rule" "worker_http_from_alb" {
+resource "aws_vpc_security_group_ingress_rule" "worker_nodeport_from_alb" {
   security_group_id            = aws_security_group.worker.id
-  description                  = "HTTP from ALB to Traefik"
+  description                  = "HTTP from ALB to NodePort"
   ip_protocol                  = "tcp"
-  from_port                    = 80
-  to_port                      = 80
+  from_port                    = 30080
+  to_port                      = 30080
   referenced_security_group_id = aws_security_group.alb.id
 
   tags = {
-    Name        = "${var.project_name}-worker-http-alb"
-    Project     = var.project_name
-    Environment = var.environment
-  }
-}
-
-# Allow HTTPS from ALB (Traefik hostPort 443)
-resource "aws_vpc_security_group_ingress_rule" "worker_https_from_alb" {
-  security_group_id            = aws_security_group.worker.id
-  description                  = "HTTPS from ALB to Traefik"
-  ip_protocol                  = "tcp"
-  from_port                    = 443
-  to_port                      = 443
-  referenced_security_group_id = aws_security_group.alb.id
-
-  tags = {
-    Name        = "${var.project_name}-worker-https-alb"
+    Name        = "${var.project_name}-worker-nodeport-alb"
     Project     = var.project_name
     Environment = var.environment
   }
@@ -444,17 +427,17 @@ resource "aws_vpc_security_group_ingress_rule" "alb_https_in" {
   }
 }
 
-# Allow HTTP outbound to workers only
-resource "aws_vpc_security_group_egress_rule" "alb_http_to_workers" {
+# Allow NodePort outbound to workers only
+resource "aws_vpc_security_group_egress_rule" "alb_nodeport_to_workers" {
   security_group_id            = aws_security_group.alb.id
-  description                  = "HTTP to workers"
+  description                  = "NodePort to workers"
   ip_protocol                  = "tcp"
-  from_port                    = 80
-  to_port                      = 80
+  from_port                    = 30080
+  to_port                      = 30080
   referenced_security_group_id = aws_security_group.worker.id
 
   tags = {
-    Name        = "${var.project_name}-alb-http-workers"
+    Name        = "${var.project_name}-alb-nodeport-workers"
     Project     = var.project_name
     Environment = var.environment
   }

@@ -22,7 +22,7 @@
 
 # Execute the join command on the worker node
 - name: Execute kubeadm join
-  ansible.builtin.command: "{{ join_command }} --ignore-preflight-errors=Mem,NumCPU"
+  ansible.builtin.command: "{{ join_command }} --ignore-preflight-errors=Swap,Mem,NumCPU"
   become: true
   when: not node_joined.stat.exists
   register: join_result

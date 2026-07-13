@@ -48,16 +48,20 @@ resource "aws_lb_target_group" "http" {
 
 # HTTPS target group — Traefik port 443 on worker instances
 resource "aws_lb_target_group" "https" {
-  name        = "k8s-workers-https"
-  port        = 443
-  protocol    = "HTTPS"
+  name_prefix = "k8sw-"
+  port        = 30080
+  protocol    = "HTTP"
   target_type = "instance"
   vpc_id      = var.vpc_id
 
+  lifecycle {
+    create_before_destroy = true
+  }
+
   health_check {
     enabled             = true
-    path                = "/health"
-    port                = "80"
+    path                = "/"
+    port                = "traffic-port"
     protocol            = "HTTP"
     healthy_threshold   = 2
     unhealthy_threshold = 3
@@ -87,18 +91,18 @@ resource "aws_lb_target_group_attachment" "worker_2_http" {
   port             = 80
 }
 
-# Register worker 1 into the HTTPS target group on port 443
+# Register worker 1 into the HTTPS target group on port 30080
 resource "aws_lb_target_group_attachment" "worker_1_https" {
   target_group_arn = aws_lb_target_group.https.arn
   target_id        = var.worker_1_instance_id
-  port             = 443
+  port             = 30080
 }
 
-# Register worker 2 into the HTTPS target group on port 443
+# Register worker 2 into the HTTPS target group on port 30080
 resource "aws_lb_target_group_attachment" "worker_2_https" {
   target_group_arn = aws_lb_target_group.https.arn
   target_id        = var.worker_2_instance_id
-  port             = 443
+  port             = 30080
 }
 
 # ── Listeners ───────────────────────────────────────────────────────
@@ -120,7 +124,7 @@ resource "aws_lb_listener" "http" {
   }
 
   tags = {
-    Name        = "k8s-alb-http-listener"
+    Name        = "${var.project_name}-alb-http-listener"
     Project     = var.project_name
     Environment = var.environment
   }
